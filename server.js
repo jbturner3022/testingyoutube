@@ -59,13 +59,14 @@ app.post('/extract-frame', async (req, res) => {
     const tempDir = '/tmp/frames';
     await fs.mkdir(tempDir, { recursive: true });
     
-    // 5. Download video segment to file (NOT piping)
+    // 5. Download video segment to file
     const tempVideo = path.join(tempDir, `${videoId}_segment.mp4`);
     const rawFramePath = path.join(tempDir, `${videoId}_raw.jpg`);
     
     console.log('Downloading video segment...');
     await execAsync(
-      `yt-dlp -f "best[height<=1080]" ` +
+      `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" ` +
+      `--merge-output-format mp4 ` +
       `--external-downloader ffmpeg ` +
       `--external-downloader-args "-ss ${extractTime} -t 2" ` +
       `-o "${tempVideo}" "${videoUrl}"`,
@@ -110,8 +111,7 @@ app.post('/extract-frame', async (req, res) => {
     
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).j
-res.status(500).json({ 
+    res.status(500).json({ 
       error: error.message,
       details: 'Failed to extract frame. Check if video URL is valid and accessible.'
     });
