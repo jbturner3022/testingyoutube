@@ -16,23 +16,24 @@ app.get('/', (req, res) => {
     status: 'online',
     message: 'YouTube Frame Extraction API',
     endpoints: {
-      extract: 'POST /extract-frame'
+      extract: 'POST /extract-frame',
+      extractMultiple: 'POST /extract-frames-multiple'
     }
   });
 });
 
-// Main extraction endpoint
-app.post('/extract-frame', async (req, res) => {
-  const { videoUrl, timestamp = 'auto' } = req.body;
+// Extract multiple frames
+app.post('/extract-frames-multiple', async (req, res) => {
+  const { videoUrl } = req.body;
   
-  console.log(`Processing: ${videoUrl}`);
+  console.log(`Processing multiple frames: ${videoUrl}`);
   
   if (!videoUrl) {
     return res.status(400).json({ error: 'videoUrl is required' });
   }
   
   try {
-    // 1. Extract video ID from URL
+    // 1. Extract video ID
     const videoId = extractVideoId(videoUrl);
     if (!videoId) {
       return res.status(400).json({ error: 'Invalid YouTube URL' });
@@ -45,24 +46,22 @@ app.post('/extract-frame', async (req, res) => {
     const duration = await getVideoDuration(videoUrl);
     console.log(`Duration: ${duration}s`);
     
-    // 3. Calculate extraction timestamp
-    let extractTime;
-    if (timestamp === 'auto') {
-      extractTime = Math.floor(duration * 0.65);
-    } else {
-      extractTime = parseInt(timestamp);
-    }
+    // 3. Calculate 3 timestamps: 50%, 65%, 75%
+    const timestamps = [
+      { percent: 50, time: Math.floor(duration * 0.50), label: 'middle' },
+      { percent: 65, time: Math.floor(duration * 0.65), label: 'climax' },
+      { percent: 75, time: Math.floor(duration * 0.75), label: 'late' }
+    ];
     
-    console.log(`Extracting frame at ${extractTime}s (${((extractTime/duration)*100).toFixed(1)}%)`);
+    console.log(`Extracting frames at: ${timestamps.map(t => `${t.time}s (${t.percent}%)`).join(', ')}`);
     
     // 4. Create temp directory
     const tempDir = '/tmp/frames';
     await fs.mkdir(tempDir, { recursive: true });
     
     const tempVideo = path.join(tempDir, `${videoId}_video.mp4`);
-    const rawFramePath = path.join(tempDir, `${videoId}_raw.jpg`);
     
-    // 5. Download full video file
+    // 5. Download video once
     console.log('Downloading video...');
     await execAsync(
       `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" ` +
@@ -71,7 +70,113 @@ app.post('/extract-frame', async (req, res) => {
       { maxBuffer: 100 * 1024 * 1024 }
     );
     
-    // 6. Extract frame from downloaded file
+    // 6. Extract and process all 3 frames
+    const results = [];
+    
+    for (const ts of timestamps) {
+      console.log(`Processing ${ts.label} frame (${ts.percent}%)...`);
+      
+      const rawFramePath = path.join(tempDir, `${videoId}_raw_${ts.label}.jpg`);
+      const croppedFramePath = path.join(tempDir, `${videoId}_cropped_${ts.label}.jpg`);
+      
+      // Extract frame
+      await execAsync(
+        `ffmpeg -ss ${ts.time} -i "${tempVideo}" -frames:v 1 -q:v 2 "${rawFramePath}"`,
+        { maxBuffer: 10 * 1024 * 1024 }
+      );
+      
+      // Crop to portrait
+      await sharp(rawFramePath)
+        .resize(1080, 1920, {
+          fit: 'cover',
+          position: 'centre'
+        })
+        .jpeg({ 
+          quality: 90,
+          mozjpeg: true
+        })
+        .toFile(croppedFramePath);
+      
+      // Read as base64
+      const imageBuffer = await fs.readFile(croppedFramePath);
+      const base64Image = imageBuffer.toString('base64');
+      
+      results.push({
+        label: ts.label,
+        percent: ts.percent,
+        timestamp: ts.time,
+        image: `data:image/jpeg;base64,${base64Image}`
+      });
+      
+      // Cleanup raw frame
+      await fs.unlink(rawFramePath);
+      await fs.unlink(croppedFramePath);
+    }
+    
+    // Cleanup video
+    await fs.unlink(tempVideo);
+    
+    console.log('Success! Sending 3 frames...');
+    
+    res.json({
+      videoId: videoId,
+      duration: duration,
+      frames: results
+    });
+    
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Failed to extract frames.'
+    });
+  }
+});
+
+// Single frame extraction (original endpoint)
+app.post('/extract-frame', async (req, res) => {
+  const { videoUrl, timestamp = 'auto' } = req.body;
+  
+  console.log(`Processing: ${videoUrl}`);
+  
+  if (!videoUrl) {
+    return res.status(400).json({ error: 'videoUrl is required' });
+  }
+  
+  try {
+    const videoId = extractVideoId(videoUrl);
+    if (!videoId) {
+      return res.status(400).json({ error: 'Invalid YouTube URL' });
+    }
+    
+    console.log(`Video ID: ${videoId}`);
+    
+    const duration = await getVideoDuration(videoUrl);
+    console.log(`Duration: ${duration}s`);
+    
+    let extractTime;
+    if (timestamp === 'auto') {
+      extractTime = Math.floor(duration * 0.65);
+    } else {
+      extractTime = parseInt(timestamp);
+    }
+    
+    console.log(`Extracting frame at ${extractTime}s`);
+    
+    const tempDir = '/tmp/frames';
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    const tempVideo = path.join(tempDir, `${videoId}_video.mp4`);
+    const rawFramePath = path.join(tempDir, `${videoId}_raw.jpg`);
+    
+    console.log('Downloading video...');
+    await execAsync(
+      `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" ` +
+      `--merge-output-format mp4 ` +
+      `-o "${tempVideo}" "${videoUrl}"`,
+      { maxBuffer: 100 * 1024 * 1024 }
+    );
+    
     console.log('Extracting frame...');
     await execAsync(
       `ffmpeg -ss ${extractTime} -i "${tempVideo}" -frames:v 1 -q:v 2 "${rawFramePath}"`,
@@ -80,7 +185,6 @@ app.post('/extract-frame', async (req, res) => {
     
     console.log('Cropping to portrait...');
     
-    // 7. Crop to 1080x1920 portrait format
     const croppedFramePath = path.join(tempDir, `${videoId}_cropped.jpg`);
     
     await sharp(rawFramePath)
@@ -96,9 +200,7 @@ app.post('/extract-frame', async (req, res) => {
     
     console.log('Success! Sending file...');
     
-    // 8. Send the file
     res.sendFile(croppedFramePath, async (err) => {
-      // Clean up temp files after sending
       try {
         await fs.unlink(tempVideo);
         await fs.unlink(rawFramePath);
@@ -112,12 +214,11 @@ app.post('/extract-frame', async (req, res) => {
     console.error('Error:', error);
     res.status(500).json({ 
       error: error.message,
-      details: 'Failed to extract frame. Check if video URL is valid and accessible.'
+      details: 'Failed to extract frame.'
     });
   }
 });
 
-// Helper function to extract video ID from YouTube URL
 function extractVideoId(url) {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
@@ -132,7 +233,6 @@ function extractVideoId(url) {
   return null;
 }
 
-// Get video duration using yt-dlp
 async function getVideoDuration(videoUrl) {
   try {
     const { stdout } = await execAsync(
@@ -148,9 +248,9 @@ async function getVideoDuration(videoUrl) {
   }
 }
 
-// Start server
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 YouTube Frame Extraction API running on port ${PORT}`);
   console.log(`📍 Ready to process requests at POST /extract-frame`);
+  console.log(`📍 Ready to process requests at POST /extract-frames-multiple`);
 });
