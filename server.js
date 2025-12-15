@@ -48,7 +48,6 @@ app.post('/extract-frame', async (req, res) => {
     // 3. Calculate extraction timestamp
     let extractTime;
     if (timestamp === 'auto') {
-      // Extract from 65% through (optimal for most videos)
       extractTime = Math.floor(duration * 0.65);
     } else {
       extractTime = parseInt(timestamp);
@@ -56,24 +55,30 @@ app.post('/extract-frame', async (req, res) => {
     
     console.log(`Extracting frame at ${extractTime}s (${((extractTime/duration)*100).toFixed(1)}%)`);
     
-    // 4. Create temp directory if it doesn't exist
+    // 4. Create temp directory
     const tempDir = '/tmp/frames';
     await fs.mkdir(tempDir, { recursive: true });
     
-    // 5. Download frame using yt-dlp and ffmpeg
+    // 5. Download video segment to file (NOT piping)
+    const tempVideo = path.join(tempDir, `${videoId}_segment.mp4`);
     const rawFramePath = path.join(tempDir, `${videoId}_raw.jpg`);
     
-    console.log('Downloading and extracting frame...');
+    console.log('Downloading video segment...');
     await execAsync(
       `yt-dlp -f "best[height<=1080]" ` +
       `--external-downloader ffmpeg ` +
       `--external-downloader-args "-ss ${extractTime} -t 2" ` +
-      `-o - "${videoUrl}" | ` +
-      `ffmpeg -i pipe:0 -ss 1 -vframes 1 -q:v 2 "${rawFramePath}"`,
-      { maxBuffer: 50 * 1024 * 1024 } // 50MB buffer
+      `-o "${tempVideo}" "${videoUrl}"`,
+      { maxBuffer: 50 * 1024 * 1024 }
     );
     
-    console.log('Frame extracted, cropping to portrait...');
+    console.log('Extracting frame...');
+    await execAsync(
+      `ffmpeg -i "${tempVideo}" -ss 1 -vframes 1 -q:v 2 "${rawFramePath}"`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    
+    console.log('Cropping to portrait...');
     
     // 6. Crop to 1080x1920 portrait format
     const croppedFramePath = path.join(tempDir, `${videoId}_cropped.jpg`);
@@ -81,11 +86,11 @@ app.post('/extract-frame', async (req, res) => {
     await sharp(rawFramePath)
       .resize(1080, 1920, {
         fit: 'cover',
-        position: 'centre' // Smart center crop
+        position: 'centre'
       })
       .jpeg({ 
         quality: 90,
-        mozjpeg: true // Better compression
+        mozjpeg: true
       })
       .toFile(croppedFramePath);
     
@@ -95,6 +100,7 @@ app.post('/extract-frame', async (req, res) => {
     res.sendFile(croppedFramePath, async (err) => {
       // Clean up temp files after sending
       try {
+        await fs.unlink(tempVideo);
         await fs.unlink(rawFramePath);
         await fs.unlink(croppedFramePath);
       } catch (e) {
@@ -104,47 +110,4 @@ app.post('/extract-frame', async (req, res) => {
     
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      details: 'Failed to extract frame. Check if video URL is valid and accessible.'
-    });
-  }
-});
-
-// Helper function to extract video ID from YouTube URL
-function extractVideoId(url) {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/ // Just the ID
-  ];
-  
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  
-  return null;
-}
-
-// Get video duration using yt-dlp
-async function getVideoDuration(videoUrl) {
-  try {
-    const { stdout } = await execAsync(
-      `yt-dlp --dump-json --no-warnings "${videoUrl}"`,
-      { maxBuffer: 10 * 1024 * 1024 }
-    );
-    
-    const videoInfo = JSON.parse(stdout);
-    return videoInfo.duration || 300; // Default 5 minutes if not found
-  } catch (error) {
-    console.error('Error getting duration:', error);
-    return 300; // Default fallback
-  }
-}
-
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 YouTube Frame Extraction API running on port ${PORT}`);
-  console.log(`📍 Ready to process requests at POST /extract-frame`);
-});
+    res.status(500).j
