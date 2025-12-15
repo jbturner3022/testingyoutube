@@ -59,21 +59,28 @@ app.post('/extract-frame', async (req, res) => {
     const tempDir = '/tmp/frames';
     await fs.mkdir(tempDir, { recursive: true });
     
+    const tempVideo = path.join(tempDir, `${videoId}_video.mp4`);
     const rawFramePath = path.join(tempDir, `${videoId}_raw.jpg`);
     
-    // 5. Download and extract frame directly in one command
-    console.log('Downloading and extracting frame...');
+    // 5. Download full video file
+    console.log('Downloading video...');
     await execAsync(
       `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" ` +
       `--merge-output-format mp4 ` +
-      `-o - "${videoUrl}" | ` +
-      `ffmpeg -ss ${extractTime} -i pipe:0 -frames:v 1 -q:v 2 "${rawFramePath}"`,
+      `-o "${tempVideo}" "${videoUrl}"`,
       { maxBuffer: 100 * 1024 * 1024 }
+    );
+    
+    // 6. Extract frame from downloaded file
+    console.log('Extracting frame...');
+    await execAsync(
+      `ffmpeg -ss ${extractTime} -i "${tempVideo}" -frames:v 1 -q:v 2 "${rawFramePath}"`,
+      { maxBuffer: 10 * 1024 * 1024 }
     );
     
     console.log('Cropping to portrait...');
     
-    // 6. Crop to 1080x1920 portrait format
+    // 7. Crop to 1080x1920 portrait format
     const croppedFramePath = path.join(tempDir, `${videoId}_cropped.jpg`);
     
     await sharp(rawFramePath)
@@ -89,10 +96,11 @@ app.post('/extract-frame', async (req, res) => {
     
     console.log('Success! Sending file...');
     
-    // 7. Send the file
+    // 8. Send the file
     res.sendFile(croppedFramePath, async (err) => {
       // Clean up temp files after sending
       try {
+        await fs.unlink(tempVideo);
         await fs.unlink(rawFramePath);
         await fs.unlink(croppedFramePath);
       } catch (e) {
