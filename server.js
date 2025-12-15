@@ -111,3 +111,47 @@ app.post('/extract-frame', async (req, res) => {
   } catch (error) {
     console.error('Error:', error);
     res.status(500).j
+res.status(500).json({ 
+      error: error.message,
+      details: 'Failed to extract frame. Check if video URL is valid and accessible.'
+    });
+  }
+});
+
+// Helper function to extract video ID from YouTube URL
+function extractVideoId(url) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  
+  return null;
+}
+
+// Get video duration using yt-dlp
+async function getVideoDuration(videoUrl) {
+  try {
+    const { stdout } = await execAsync(
+      `yt-dlp --dump-json --no-warnings "${videoUrl}"`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    
+    const videoInfo = JSON.parse(stdout);
+    return videoInfo.duration || 300;
+  } catch (error) {
+    console.error('Error getting duration:', error);
+    return 300;
+  }
+}
+
+// Start server
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🚀 YouTube Frame Extraction API running on port ${PORT}`);
+  console.log(`📍 Ready to process requests at POST /extract-frame`);
+});
