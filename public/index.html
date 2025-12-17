@@ -200,34 +200,47 @@
         }
 
         function selectFrame(type, index) {
-            if (type === 'portrait') {
-                selectedPortrait = currentData.portrait[index];
-                
-                // Update UI
-                document.querySelectorAll('#portraitFrames .frame-card').forEach((card, i) => {
-                    card.classList.toggle('selected', i === index);
-                });
-                
-                document.getElementById('portraitSelected').classList.remove('hidden');
-                document.getElementById('portraitPercent').textContent = `${selectedPortrait.percent}%`;
-                
-                // Show landscape section
-                displayFrames('landscape', currentData.landscape);
-                document.getElementById('landscapeSection').classList.remove('hidden');
-                
-            } else {
-                selectedLandscape = currentData.landscape[index];
-                
-                // Update UI
-                document.querySelectorAll('#landscapeFrames .frame-card').forEach((card, i) => {
-                    card.classList.toggle('selected', i === index);
-                });
-                
-                document.getElementById('landscapeSelected').classList.remove('hidden');
-                document.getElementById('landscapePercent').textContent = `${selectedLandscape.percent}%`;
-                
-                // Show save button
-                document.getElementById('saveSection').classList.remove('hidden');
+            try {
+                // Prevent selection if data isn't ready
+                if (!currentData || !currentData[type] || !currentData[type][index]) {
+                    console.error('Data not ready for selection');
+                    return;
+                }
+
+                if (type === 'portrait') {
+                    selectedPortrait = currentData.portrait[index];
+                    
+                    // Update UI
+                    document.querySelectorAll('#portraitFrames .frame-card').forEach((card, i) => {
+                        card.classList.toggle('selected', i === index);
+                    });
+                    
+                    document.getElementById('portraitSelected').classList.remove('hidden');
+                    document.getElementById('portraitPercent').textContent = `${selectedPortrait.percent}%`;
+                    
+                    // Show landscape section
+                    if (currentData.landscape && currentData.landscape.length > 0) {
+                        displayFrames('landscape', currentData.landscape);
+                        document.getElementById('landscapeSection').classList.remove('hidden');
+                    }
+                    
+                } else {
+                    selectedLandscape = currentData.landscape[index];
+                    
+                    // Update UI
+                    document.querySelectorAll('#landscapeFrames .frame-card').forEach((card, i) => {
+                        card.classList.toggle('selected', i === index);
+                    });
+                    
+                    document.getElementById('landscapeSelected').classList.remove('hidden');
+                    document.getElementById('landscapePercent').textContent = `${selectedLandscape.percent}%`;
+                    
+                    // Show save button
+                    document.getElementById('saveSection').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error in selectFrame:', error);
+                alert('Error selecting frame. Please try again.');
             }
         }
 
@@ -238,8 +251,16 @@
             }
 
             const saveBtn = document.getElementById('saveBtn');
+            const originalText = saveBtn.textContent;
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
+
+            // Set a timeout to auto-recover if something hangs
+            const timeoutId = setTimeout(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+                alert('Save operation timed out. Please try again.');
+            }, 30000); // 30 second timeout
 
             try {
                 const response = await fetch('/save-selection', {
@@ -252,6 +273,8 @@
                         landscapeFrame: selectedLandscape
                     })
                 });
+
+                clearTimeout(timeoutId); // Clear timeout if request succeeds
 
                 if (!response.ok) {
                     throw new Error('Failed to save frames');
@@ -271,9 +294,11 @@
                 document.getElementById('saveSection').classList.add('hidden');
 
             } catch (error) {
+                clearTimeout(timeoutId); // Clear timeout on error
+                console.error('Save error:', error);
                 alert('Error saving frames: ' + error.message);
                 saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Save to Google Sheet';
+                saveBtn.textContent = originalText;
             }
         }
 
