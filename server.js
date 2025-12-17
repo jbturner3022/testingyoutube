@@ -59,7 +59,7 @@ function extractVideoId(url) {
 async function getVideoInfo(videoUrl) {
   try {
     const { stdout } = await execAsync(
-      `yt-dlp --dump-json --no-warnings "${videoUrl}"`
+      `yt-dlp --dump-json --no-warnings --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "${videoUrl}"`
     );
     const info = JSON.parse(stdout);
     return {
@@ -246,7 +246,8 @@ app.post('/extract-frames-both', async (req, res) => {
     console.log('Downloading video...');
     await execAsync(
       `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" ` +
-      `--no-continue --merge-output-format mp4 -o "${tempVideo}" "${videoUrl}"`
+      `--no-continue --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" ` +
+      `--merge-output-format mp4 -o "${tempVideo}" "${videoUrl}"`
     );
 
     // Extract frames for both sizes
