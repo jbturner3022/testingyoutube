@@ -25,11 +25,9 @@ cloudinary.config({
 // Google Sheets configuration
 const SHEET_ID = process.env.GOOGLE_SHEET_ID || '129nC31UKUji9eBxa-Eao2xd7ssgzgCnq_eaE34jJbc8';
 
-// Frame extraction percentages - 24 evenly spaced frames
+// Frame extraction percentages - 12 evenly spaced frames
 const FRAME_PERCENTAGES = [
-  4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 
-  44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 
-  84, 88, 92, 96
+  8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96
 ];
 
 // Ensure temp directory exists
