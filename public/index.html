@@ -257,7 +257,10 @@
                     document.getElementById('landscapeSelected').classList.remove('hidden');
                     document.getElementById('landscapePercent').textContent = `${selectedLandscape.percent}%`;
                     
-                    // Show save button
+                    // Reset and show save button
+                    const saveBtn = document.getElementById('saveBtn');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Save to Google Sheet';
                     console.log('Showing save button');
                     document.getElementById('saveSection').classList.remove('hidden');
                 }
