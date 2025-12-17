@@ -81,20 +81,25 @@ async function extractFrame(videoPath, timestamp, outputPath, size) {
 
     // Crop with Sharp
     if (size === 'portrait') {
-      // 1080x1920 portrait
+      // 1080x1350 portrait (4:5 ratio - Facebook/Instagram optimal)
+      // Shows 40% more width than 1080x1920 - keeps faces visible!
       await sharp(rawFramePath)
-        .resize(1080, 1920, {
+        .resize(1080, 1350, {
           fit: 'cover',
           position: 'center'
         })
         .jpeg({ quality: 90 })
         .toFile(outputPath);
     } else {
-      // 1200x628 landscape (center crop)
+      // 1200x628 landscape (scale down entire video, then minimal crop)
+      // This shows ~93% of the original video - keeps faces visible!
       await sharp(rawFramePath)
-        .resize(1200, 628, {
-          fit: 'cover',
-          position: 'center'
+        .resize(1200, 675, { fit: 'inside' })  // Scale down, preserve aspect ratio
+        .extract({
+          left: 0,
+          top: 24,      // Remove just 24px from top
+          width: 1200,
+          height: 628   // Remove 24px from bottom too
         })
         .jpeg({ quality: 90 })
         .toFile(outputPath);
