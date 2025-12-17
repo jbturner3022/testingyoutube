@@ -200,14 +200,31 @@
         }
 
         function selectFrame(type, index) {
+            console.log(`selectFrame called: type=${type}, index=${index}`);
+            console.log('currentData:', currentData);
+            
             try {
                 // Prevent selection if data isn't ready
-                if (!currentData || !currentData[type] || !currentData[type][index]) {
-                    console.error('Data not ready for selection');
+                if (!currentData) {
+                    console.error('currentData is null/undefined');
+                    alert('Data not ready. Please wait for frames to load.');
+                    return;
+                }
+                
+                if (!currentData[type]) {
+                    console.error(`currentData.${type} is undefined`);
+                    alert('Frame data not ready. Please try again.');
+                    return;
+                }
+                
+                if (!currentData[type][index]) {
+                    console.error(`currentData.${type}[${index}] is undefined`);
+                    alert('Selected frame data not available.');
                     return;
                 }
 
                 if (type === 'portrait') {
+                    console.log('Selecting portrait frame');
                     selectedPortrait = currentData.portrait[index];
                     
                     // Update UI
@@ -220,11 +237,16 @@
                     
                     // Show landscape section
                     if (currentData.landscape && currentData.landscape.length > 0) {
+                        console.log('Displaying landscape frames');
                         displayFrames('landscape', currentData.landscape);
                         document.getElementById('landscapeSection').classList.remove('hidden');
+                    } else {
+                        console.error('Landscape data not available');
+                        alert('Landscape frames not ready. Please refresh and try again.');
                     }
                     
                 } else {
+                    console.log('Selecting landscape frame');
                     selectedLandscape = currentData.landscape[index];
                     
                     // Update UI
@@ -236,11 +258,15 @@
                     document.getElementById('landscapePercent').textContent = `${selectedLandscape.percent}%`;
                     
                     // Show save button
+                    console.log('Showing save button');
                     document.getElementById('saveSection').classList.remove('hidden');
                 }
+                
+                console.log('selectFrame completed successfully');
             } catch (error) {
                 console.error('Error in selectFrame:', error);
-                alert('Error selecting frame. Please try again.');
+                console.error('Error stack:', error.stack);
+                alert('Error selecting frame: ' + error.message + '. Please refresh and try again.');
             }
         }
 
