@@ -9,14 +9,17 @@
         .frame-card {
             transition: all 0.3s ease;
             cursor: pointer;
+            border: 2px solid transparent;
         }
         .frame-card:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transform: scale(1.08);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            border-color: #3b82f6;
         }
         .frame-card.selected {
-            border: 4px solid #10b981;
-            transform: scale(1.05);
+            border: 3px solid #10b981;
+            transform: scale(1.08);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
         }
         .loading {
             border: 4px solid #f3f3f3;
@@ -37,7 +40,7 @@
         <!-- Header -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">🎥 YouTube Frame Extractor</h1>
-            <p class="text-gray-600">Extract frames at 15%, 25%, 50%, 65%, 85%, and 90% of video duration</p>
+            <p class="text-gray-600">Extract 24 frames evenly distributed throughout the video</p>
         </div>
 
         <!-- Input Section -->
@@ -64,7 +67,8 @@
         <div id="loading" class="hidden bg-white rounded-lg shadow-lg p-12 mb-6">
             <div class="flex flex-col items-center justify-center">
                 <div class="loading mb-4"></div>
-                <p class="text-gray-600 text-lg">Extracting frames... This may take 15-30 seconds</p>
+                <p class="text-gray-600 text-lg">Extracting 24 frames... This may take 45-90 seconds</p>
+                <p class="text-gray-500 text-sm mt-2">Downloading video and processing frames</p>
             </div>
         </div>
 
@@ -77,10 +81,10 @@
         <!-- Portrait Frames Section -->
         <div id="portraitSection" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
             <div class="mb-4">
-                <h2 class="text-2xl font-bold text-gray-800 mb-1">📱 Portrait Frames (1080×1920)</h2>
-                <p class="text-gray-600">Select your favorite portrait frame</p>
+                <h2 class="text-2xl font-bold text-gray-800 mb-1">📱 Portrait Frames (1080×1350)</h2>
+                <p class="text-gray-600">Select your favorite portrait frame from 24 options</p>
             </div>
-            <div id="portraitFrames" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+            <div id="portraitFrames" class="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3"></div>
             <div id="portraitSelected" class="hidden mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
                 ✅ Portrait selected: <span id="portraitPercent"></span>
             </div>
@@ -90,9 +94,9 @@
         <div id="landscapeSection" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
             <div class="mb-4">
                 <h2 class="text-2xl font-bold text-gray-800 mb-1">🖼️ Landscape Frames (1200×628)</h2>
-                <p class="text-gray-600">Select your favorite landscape frame</p>
+                <p class="text-gray-600">Select your favorite landscape frame from 24 options</p>
             </div>
-            <div id="landscapeFrames" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="landscapeFrames" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
             <div id="landscapeSelected" class="hidden mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
                 ✅ Landscape selected: <span id="landscapePercent"></span>
             </div>
