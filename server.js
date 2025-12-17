@@ -244,11 +244,19 @@ app.post('/extract-frames-both', async (req, res) => {
     // Get video info
     const { duration, title } = await getVideoInfo(videoUrl);
 
-    // Download video
+    // Clean up any existing partial downloads for this video
+    try {
+      await execAsync(`rm -f /tmp/frames/${videoId}*.part`);
+      await execAsync(`rm -f /tmp/frames/${videoId}.mp4`);
+    } catch (cleanupError) {
+      // Ignore cleanup errors - files might not exist
+    }
+
+    // Download video (force fresh download, no resume)
     console.log('Downloading video...');
     await execAsync(
       `yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" ` +
-      `--merge-output-format mp4 -o "${tempVideo}" "${videoUrl}"`
+      `--no-continue --merge-output-format mp4 -o "${tempVideo}" "${videoUrl}"`
     );
 
     // Extract frames for both sizes
