@@ -244,17 +244,6 @@ app.post('/extract-frames-both', async (req, res) => {
     // Get video info
     const { duration, title } = await getVideoInfo(videoUrl);
 
-    // Clean up any existing files for this video
-    try {
-      const files = await fs.readdir(TEMP_DIR);
-      const videoFiles = files.filter(f => f.startsWith(videoId));
-      for (const file of videoFiles) {
-        await fs.unlink(path.join(TEMP_DIR, file)).catch(() => {});
-      }
-    } catch (cleanupError) {
-      // Ignore cleanup errors - directory might not exist yet
-    }
-
     // Download video (force fresh download, no resume)
     console.log('Downloading video...');
     await execAsync(
