@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Frame Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .frame-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .frame-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .frame-card.selected {
+            border: 4px solid #10b981;
+            transform: scale(1.05);
+        }
+        .loading {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🎥 YouTube Frame Extractor</h1>
+            <p class="text-gray-600">Extract frames at 15%, 25%, 50%, 65%, 85%, and 90% of video duration</p>
+        </div>
+
+        <!-- Input Section -->
+        <div id="inputSection" class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <label class="block text-gray-700 font-semibold mb-2">YouTube URL:</label>
+            <div class="flex gap-2">
+                <input 
+                    type="text" 
+                    id="videoUrl" 
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <button 
+                    onclick="extractFrames()" 
+                    id="extractBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition duration-200"
+                >
+                    Extract Frames 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden bg-white rounded-lg shadow-lg p-12 mb-6">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loading mb-4"></div>
+                <p class="text-gray-600 text-lg">Extracting frames... This may take 15-30 seconds</p>
+            </div>
+        </div>
+
+        <!-- Video Info -->
+        <div id="videoInfo" class="hidden bg-blue-50 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold text-blue-900" id="videoTitle"></h3>
+            <p class="text-blue-700 text-sm" id="videoDuration"></p>
+        </div>
+
+        <!-- Portrait Frames Section -->
+        <div id="portraitSection" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="mb-4">
+                <h2 class="text-2xl font-bold text-gray-800 mb-1">📱 Portrait Frames (1080×1920)</h2>
+                <p class="text-gray-600">Select your favorite portrait frame</p>
+            </div>
+            <div id="portraitFrames" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+            <div id="portraitSelected" class="hidden mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
+                ✅ Portrait selected: <span id="portraitPercent"></span>
+            </div>
+        </div>
+
+        <!-- Landscape Frames Section -->
+        <div id="landscapeSection" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="mb-4">
+                <h2 class="text-2xl font-bold text-gray-800 mb-1">🖼️ Landscape Frames (1200×628)</h2>
+                <p class="text-gray-600">Select your favorite landscape frame</p>
+            </div>
+            <div id="landscapeFrames" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="landscapeSelected" class="hidden mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
+                ✅ Landscape selected: <span id="landscapePercent"></span>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div id="saveSection" class="hidden bg-white rounded-lg shadow-lg p-6">
+            <button 
+                onclick="saveSelection()" 
+                id="saveBtn"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-200"
+            >
+                💾 Save to Google Sheet
+            </button>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="hidden bg-green-50 border border-green-500 rounded-lg p-6 mt-6">
+            <h3 class="text-green-800 font-bold text-xl mb-2">✅ Success!</h3>
+            <p class="text-green-700">Frames have been saved to your Google Sheet and uploaded to Cloudinary.</p>
+            <p class="text-green-600 mt-2">Portrait URL: <a id="portraitLink" href="#" target="_blank" class="underline">View</a></p>
+            <p class="text-green-600">Landscape URL: <a id="landscapeLink" href="#" target="_blank" class="underline">View</a></p>
+            <button onclick="reset()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                Extract Another Video
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let selectedPortrait = null;
+        let selectedLandscape = null;
+
+        async function extractFrames() {
+            const videoUrl = document.getElementById('videoUrl').value.trim();
+            
+            if (!videoUrl) {
+                alert('Please enter a YouTube URL');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('portraitSection').classList.add('hidden');
+            document.getElementById('landscapeSection').classList.add('hidden');
+            document.getElementById('saveSection').classList.add('hidden');
+
+            try {
+                const response = await fetch('/extract-frames-both', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoUrl })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to extract frames');
+                }
+
+                currentData = await response.json();
+                
+                // Show video info
+                document.getElementById('videoTitle').textContent = currentData.videoTitle;
+                document.getElementById('videoDuration').textContent = `Duration: ${Math.floor(currentData.duration / 60)}:${(currentData.duration % 60).toString().padStart(2, '0')}`;
+                document.getElementById('videoInfo').classList.remove('hidden');
+
+                // Display portrait frames
+                displayFrames('portrait', currentData.portrait);
+                
+                // Hide loading
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('inputSection').classList.remove('hidden');
+                document.getElementById('portraitSection').classList.remove('hidden');
+
+            } catch (error) {
+                alert('Error extracting frames: ' + error.message);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('inputSection').classList.remove('hidden');
+            }
+        }
+
+        function displayFrames(type, frames) {
+            const container = document.getElementById(`${type}Frames`);
+            container.innerHTML = '';
+
+            frames.forEach((frame, index) => {
+                const div = document.createElement('div');
+                div.className = 'frame-card bg-white rounded-lg shadow-md overflow-hidden';
+                div.onclick = () => selectFrame(type, index);
+                
+                div.innerHTML = `
+                    <img src="${frame.image}" alt="${frame.percent}%" class="w-full h-auto">
+                    <div class="p-3 text-center">
+                        <p class="font-semibold text-gray-800">${frame.percent}%</p>
+                        <p class="text-sm text-gray-600">${Math.floor(frame.timestamp / 60)}:${(frame.timestamp % 60).toString().padStart(2, '0')}</p>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function selectFrame(type, index) {
+            if (type === 'portrait') {
+                selectedPortrait = currentData.portrait[index];
+                
+                // Update UI
+                document.querySelectorAll('#portraitFrames .frame-card').forEach((card, i) => {
+                    card.classList.toggle('selected', i === index);
+                });
+                
+                document.getElementById('portraitSelected').classList.remove('hidden');
+                document.getElementById('portraitPercent').textContent = `${selectedPortrait.percent}%`;
+                
+                // Show landscape section
+                displayFrames('landscape', currentData.landscape);
+                document.getElementById('landscapeSection').classList.remove('hidden');
+                
+            } else {
+                selectedLandscape = currentData.landscape[index];
+                
+                // Update UI
+                document.querySelectorAll('#landscapeFrames .frame-card').forEach((card, i) => {
+                    card.classList.toggle('selected', i === index);
+                });
+                
+                document.getElementById('landscapeSelected').classList.remove('hidden');
+                document.getElementById('landscapePercent').textContent = `${selectedLandscape.percent}%`;
+                
+                // Show save button
+                document.getElementById('saveSection').classList.remove('hidden');
+            }
+        }
+
+        async function saveSelection() {
+            if (!selectedPortrait || !selectedLandscape) {
+                alert('Please select both portrait and landscape frames');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch('/save-selection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        videoUrl: document.getElementById('videoUrl').value,
+                        videoTitle: currentData.videoTitle,
+                        portraitFrame: selectedPortrait,
+                        landscapeFrame: selectedLandscape
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save frames');
+                }
+
+                const result = await response.json();
+                
+                // Show success
+                document.getElementById('portraitLink').href = result.portraitUrl;
+                document.getElementById('landscapeLink').href = result.landscapeUrl;
+                document.getElementById('successMessage').classList.remove('hidden');
+                
+                // Hide other sections
+                document.getElementById('inputSection').classList.add('hidden');
+                document.getElementById('portraitSection').classList.add('hidden');
+                document.getElementById('landscapeSection').classList.add('hidden');
+                document.getElementById('saveSection').classList.add('hidden');
+
+            } catch (error) {
+                alert('Error saving frames: ' + error.message);
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Save to Google Sheet';
+            }
+        }
+
+        function reset() {
+            document.getElementById('videoUrl').value = '';
+            document.getElementById('inputSection').classList.remove('hidden');
+            document.getElementById('videoInfo').classList.add('hidden');
+            document.getElementById('portraitSection').classList.add('hidden');
+            document.getElementById('landscapeSection').classList.add('hidden');
+            document.getElementById('saveSection').classList.add('hidden');
+            document.getElementById('successMessage').classList.add('hidden');
+            document.getElementById('portraitSelected').classList.add('hidden');
+            document.getElementById('landscapeSelected').classList.add('hidden');
+            currentData = null;
+            selectedPortrait = null;
+            selectedLandscape = null;
+        }
+    </script>
+</body>
+</html>

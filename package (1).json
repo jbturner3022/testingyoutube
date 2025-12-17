@@ -1,0 +1,18 @@
+{
+  "name": "youtube-frame-extractor",
+  "version": "2.0.0",
+  "description": "Extract YouTube video frames with dual size support",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sharp": "^0.33.0",
+    "cloudinary": "^1.41.0",
+    "googleapis": "^128.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
