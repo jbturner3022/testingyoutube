@@ -145,16 +145,19 @@ async function addToGoogleSheet(data) {
     const sheets = google.sheets({ version: 'v4', auth });
     
     // First, ensure headers exist
-    const headerRange = 'Sheet1!A1:H1';
+    const headerRange = 'Sheet1!A1:K1';
     const headers = [
       'Timestamp',
-      'Video URL', 
+      'YouTube URL', 
       'Video Title',
+      'Video Description',
       'Portrait %',
       'Portrait URL',
       'Landscape %',
       'Landscape URL',
-      'Status'
+      'Blog Post Link',
+      'Status',
+      'Processed'
     ];
 
     try {
@@ -179,19 +182,22 @@ async function addToGoogleSheet(data) {
     });
 
     const row = [
-      timestamp,
-      data.videoUrl,
-      data.videoTitle,
-      `${data.portraitPercent}%`,
-      data.portraitUrl,
-      `${data.landscapePercent}%`,
-      data.landscapeUrl,
-      'Pending'
+      timestamp,              // A: Timestamp
+      data.videoUrl,          // B: YouTube URL
+      data.videoTitle,        // C: Video Title
+      '',                     // D: Video Description (filled by Make.com)
+      `${data.portraitPercent}%`,   // E: Portrait %
+      data.portraitUrl,       // F: Portrait URL
+      `${data.landscapePercent}%`,  // G: Landscape %
+      data.landscapeUrl,      // H: Landscape URL
+      '',                     // I: Blog Post Link (filled by Make.com)
+      'Pending',              // J: Status
+      ''                      // K: Processed (filled by Make.com)
     ];
 
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: 'Sheet1!A:H',
+      range: 'Sheet1!A:K',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       resource: { values: [row] }
